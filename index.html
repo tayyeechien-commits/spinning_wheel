@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cute Bot Picker - RBT Lab Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka+One&family=Poppins:wght@400;700&display=swap');
+
+        :root {
+            --bot-yellow: #ffde06;
+            --bot-blue: #00d2ff;
+            --bot-pink: #ff007a;
+            --bot-dark: #1a1a2e;
+            --neon-green: #39ff14;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bot-dark);
+            background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+            background-size: 40px 40px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* 动态Q弹大标题 */
+        .header-container { margin: 20px 0; perspective: 500px; }
+
+        h1 {
+            font-family: 'Bungee', cursive;
+            font-size: clamp(2rem, 8vw, 4rem); /* 响应式字体大小 */
+            color: var(--bot-yellow);
+            text-shadow: 4px 4px 0px var(--bot-pink), 8px 8px 0px var(--bot-blue);
+            margin: 0;
+            display: flex;
+            gap: 10px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotateX(10deg); }
+            50% { transform: translateY(-10px) rotateX(-5deg); }
+        }
+
+        h1 span { display: inline-block; animation: bounce 0.6s ease infinite alternate; }
+        h1 span:nth-child(2n) { animation-delay: 0.1s; }
+        h1 span:nth-child(3n) { animation-delay: 0.2s; }
+        @keyframes bounce { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+        .main-container {
+            display: flex;
+            gap: 80px; /* 增加间距防止拥挤 */
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            width: 95%;
+            max-width: 1400px;
+            margin-top: 20px;
+        }
+
+        .bot-panel {
+            background: #25284a;
+            padding: 30px;
+            border-radius: 40px;
+            border: 6px solid #3d427a;
+            width: 320px;
+            box-shadow: 0 15px 0px #161831;
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            height: 220px;
+            background: #161831;
+            color: var(--bot-blue);
+            border: 3px solid #3d427a;
+            padding: 15px;
+            border-radius: 20px;
+            resize: none;
+            font-family: 'Fredoka One', cursive;
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+            line-height: 1.6;
+        }
+
+        .btn-spin {
+            width: 100%;
+            padding: 18px;
+            margin-top: 20px;
+            border: none;
+            background: var(--bot-pink);
+            color: white;
+            font-family: 'Bungee';
+            font-size: 1.4rem;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 8px 0px #b30056;
+            transition: all 0.1s;
+        }
+
+        .btn-spin:active { transform: translateY(6px); box-shadow: 0 2px 0px #b30056; }
+
+        /* 3D 转盘盒子 */
+        .wheel-3d-stage { position: relative; perspective: 1500px; }
+
+        .wheel-outer {
+            width: clamp(300px, 80vw, 600px); /* 限制最大宽度 */
+            height: clamp(300px, 80vw, 600px);
+            border-radius: 50%;
+            background: #333;
+            border: 12px solid #444;
+            position: relative;
+            transform: rotateX(20deg); /* 减小倾斜角度，减少视觉拉伸 */
+            transform-style: preserve-3d;
+            box-shadow: 0 25px 0px #222, 0 40px 80px rgba(0,0,0,0.5);
+        }
+
+        .pointer {
+            position: absolute;
+            top: -30px; left: 50%;
+            transform: translateX(-50%);
+            width: 60px; height: 80px;
+            z-index: 100;
+            filter: drop-shadow(0 0 10px var(--bot-yellow));
+        }
+        .pointer::before { content: '▼'; font-size: 50px; color: var(--bot-yellow); display: block; text-align: center; }
+
+        #wheelCanvas {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            transition: transform 5s cubic-bezier(0.1, 0, 0, 1);
+        }
+
+        /* 中奖弹窗 */
+        #winnerOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(26, 26, 46, 0.98);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 1000; backdrop-filter: blur(15px);
+        }
+
+        .winner-card {
+            background: #25284a;
+            padding: 50px 80px;
+            border-radius: 50px;
+            border: 8px solid var(--bot-yellow);
+            text-align: center;
+            box-shadow: 0 0 50px rgba(255, 222, 6, 0.3);
+            animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop { from { transform: scale(0.5); } to { transform: scale(1); } }
+        .winner-name { font-size: 4.5rem; font-family: 'Bungee'; color: white; text-shadow: 5px 5px var(--bot-pink); margin: 20px 0; }
+
+        .close-btn {
+            padding: 15px 40px; background: var(--bot-blue); color: white;
+            font-family: 'Bungee'; border-radius: 30px; border: none;
+            cursor: pointer; font-size: 1.1rem; box-shadow: 0 6px 0 #0096b6;
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="clickSound" src="click.mp3" preload="auto"></audio>
+    <audio id="spinSound" src="spin.mp3" preload="auto"></audio>
+    <audio id="winSound" src="win.mp3" preload="auto"></audio>
+
+    <div class="header-container">
+        <h1 id="bouncyTitle">
+            <span>R</span><span>B</span><span>T</span><span>-</span><span>B</span><span>O</span><span>T</span>
+        </h1>
+    </div>
+
+    <div class="main-container">
+        <div class="bot-panel">
+            <h3 style="margin:0 0 10px 0; font-family:'Bungee'; color:var(--bot-yellow); font-size: 1rem;">Database</h3>
+            <textarea id="namesInput">Robot Team A
+Gear Masters
+Logic Squad
+Circuit Pilots
+3D Creators
+Creative Bots</textarea>
+            <button class="btn-spin" onclick="handleSpinClick()">SCAN SYSTEM!</button>
+        </div>
+
+        <div class="wheel-3d-stage">
+            <div class="pointer"></div>
+            <div class="wheel-outer">
+                <canvas id="wheelCanvas" width="1000" height="1000"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="winnerOverlay">
+        <div class="winner-card">
+            <h2 style="font-family:'Bungee'; color:var(--bot-blue);">TARGET LOCKED!</h2>
+            <div class="winner-name" id="winnerName">...</div>
+            <button class="close-btn" onclick="closeOverlay()">CONTINUE SCAN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('winnerOverlay');
+        const winnerDisplay = document.getElementById('winnerName');
+        const input = document.getElementById('namesInput');
+        const clickSound = document.getElementById('clickSound');
+        const spinSound = document.getElementById('spinSound');
+        const winSound = document.getElementById('winSound');
+
+        let names = [];
+        let currentRotation = 0;
+        let isSpinning = false;
+        const colors = ['#00d2ff', '#ff007a', '#39ff14', '#ffde06', '#9d00ff', '#ff8a00'];
+
+        function init() {
+            names = input.value.trim().split('\n').filter(n => n.trim() !== "");
+            drawWheel();
+        }
+
+        function drawWheel() {
+            const num = names.length;
+            if (num === 0) return;
+            
+            const arc = (Math.PI * 2) / num;
+            const centerX = 500;
+            const centerY = 500;
+            const radius = 480; // 稍微缩小圆半径，留出一点边缘空间
+
+            ctx.clearRect(0, 0, 1000, 1000);
+
+            // 根据人数动态决定字体大小，人数越多字越小
+            let fontSize = Math.min(50, Math.max(20, 600 / num));
+
+            names.forEach((name, i) => {
+                const angle = i * arc;
+                
+                // 绘制扇形
+                ctx.beginPath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, 500, angle, angle + arc);
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+
+                // 绘制文字
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "white";
+                ctx.font = `bold ${fontSize}px 'Fredoka One', cursive`;
+                
+                // 增加呼吸感：文字不再贴边，留出 padding (radius - 50)
+                let text = name.toUpperCase();
+                if (text.length > 12) text = text.substring(0, 10) + "..."; // 过长截断
+                
+                ctx.shadowColor = "rgba(0,0,0,0.4)";
+                ctx.shadowBlur = 8;
+                ctx.fillText(text, radius - 40, fontSize / 3);
+                ctx.restore();
+            });
+
+            // 中心装饰轴承
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 65, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fill();
+            ctx.strokeStyle = '#ffde06';
+            ctx.lineWidth = 12;
+            ctx.stroke();
+        }
+
+        function handleSpinClick() {
+            if (isSpinning) return;
+            clickSound.currentTime = 0;
+            clickSound.play().catch(()=>{});
+            setTimeout(spin, 100);
+        }
+
+        function spin() {
+            names = input.value.trim().split('\n').filter(n => n.trim() !== "");
+            if (names.length < 1) return alert("NO ROBOTS FOUND!");
+            
+            isSpinning = true;
+            spinSound.currentTime = 0;
+            spinSound.loop = true;
+            spinSound.play().catch(()=>{});
+
+            const spinRounds = 8 + Math.floor(Math.random() * 5);
+            const degrees = Math.floor(Math.random() * 360);
+            currentRotation += (spinRounds * 360) + degrees;
+
+            canvas.style.transform = `rotate(-${currentRotation}deg)`;
+
+            setTimeout(() => {
+                isSpinning = false;
+                spinSound.pause();
+                spinSound.loop = false;
+                
+                const actualAngle = currentRotation % 360;
+                const arcSize = 360 / names.length;
+                const winnerIndex = Math.floor(actualAngle / arcSize);
+                const winner = names[winnerIndex];
+
+                winnerDisplay.innerText = winner;
+                overlay.style.display = 'flex';
+                
+                winSound.currentTime = 0;
+                winSound.play().catch(()=>{});
+
+                names.splice(winnerIndex, 1);
+                input.value = names.join('\n');
+            }, 5000);
+        }
+
+        function closeOverlay() {
+            clickSound.play().catch(()=>{});
+            overlay.style.display = 'none';
+            winSound.pause(); 
+            drawWheel(); 
+        }
+
+        input.addEventListener('input', init);
+        init();
+    </script>
+</body>
+</html>
